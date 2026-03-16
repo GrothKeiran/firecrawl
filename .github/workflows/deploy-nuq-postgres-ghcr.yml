@@ -1,0 +1,47 @@
+name: Deploy NuQ Postgres to GHCR (fork)
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - apps/nuq-postgres/**
+      - .github/workflows/deploy-nuq-postgres-ghcr.yml
+  workflow_dispatch:
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Lowercase Repo Owner
+        run: |
+          echo "REPO_OWNER=${GITHUB_REPOSITORY_OWNER,,}" >>${GITHUB_ENV}
+        env:
+          GITHUB_REPOSITORY_OWNER: '${{ github.repository_owner }}'
+
+      - name: Build and Push
+        uses: docker/build-push-action@v5
+        with:
+          context: ./apps/nuq-postgres
+          push: true
+          tags: ghcr.io/${{ env.REPO_OWNER }}/nuq-postgres:latest
+          platforms: linux/amd64,linux/arm64
